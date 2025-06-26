@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מביא נתונים של API</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a cleaner look */
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            direction: rtl; /* Ensure RTL for all text */
+        }
+        /* Custom modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 90%; /* Keep max-width for larger screens */
+            width: calc(100% - 32px); /* Adjusted to stretch with padding (16px on each side) */
+            text-align: center;
+            position: relative;
+        }
+        .close-button {
+            position: absolute;
+            top: 10px;
+            left: 15px; /* Adjusted for RTL */
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6; /* Blue spinner */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 bg-gray-100">
+
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">מביא נתונים של API</h1>
+
+        <div class="mb-6">
+            <label for="projectValue" class="block text-gray-700 text-sm font-semibold mb-2">
+                מזהה טרידיס:
+            </label>
+            <input
+                type="text"
+                id="projectValue"
+                placeholder="לדוגמה, 12345"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-right"
+            >
+        </div>
+
+        <button
+            id="getInfoButton"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+        >
+            קבל מידע
+        </button>
+
+        <div id="loadingIndicator" class="hidden mt-4 flex items-center justify-center">
+            <div class="spinner"></div>
+            <span class="ml-2 text-gray-600">טוען...</span>
+        </div>
+
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">מידע על הפרויקט:</h2>
+            <div id="responseDisplay" class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-base text-gray-900 overflow-auto max-h-96">
+                <!-- Project details will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Messages -->
+    <div id="myModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeModalButton">&times;</span>
+            <p id="modalMessage" class="text-lg text-gray-700"></p>
+            <button id="modalOkButton" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">אישור</button>
+        </div>
+    </div>
+
+    <script>
+        const projectValueInput = document.getElementById('projectValue');
+        const getInfoButton = document.getElementById('getInfoButton');
+        const responseDisplay = document.getElementById('responseDisplay');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const myModal = document.getElementById('myModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalOkButton = document.getElementById('modalOkButton');
+
+        // Function to show the custom modal
+        function showModal(message) {
+            modalMessage.textContent = message;
+            myModal.classList.remove('hidden');
+        }
+
+        // Function to hide the custom modal
+        function hideModal() {
+            myModal.classList.add('hidden');
+        }
+
+        // Event listeners for closing the modal
+        closeModalButton.addEventListener('click', hideModal);
+        modalOkButton.addEventListener('click', hideModal);
+        window.addEventListener('click', (event) => {
+            if (event.target == myModal) {
+                hideModal();
+            }
+        });
+
+        getInfoButton.addEventListener('click', async () => {
+            const projectValue = projectValueInput.value.trim();
+            const baseUrl = 'https://api.yad2.treedis.com/v1/api/public/projects/';
+
+            if (!projectValue) {
+                showModal('אנא הזן מזהה טרידיס.');
+                return;
+            }
+
+            const apiUrl = `${baseUrl}${projectValue}`;
+
+            // Show loading indicator and clear previous response
+            loadingIndicator.classList.remove('hidden');
+            responseDisplay.innerHTML = ''; // Clear previous content
+            getInfoButton.disabled = true; // Disable button during fetch
+
+            try {
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    let errorText = `שגיאת HTTP! סטטוס: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorText += ` - ${JSON.stringify(errorData, null, 2)}`;
+                    } catch (e) {
+                        errorText += ` - ${await response.text()}`;
+                    }
+                    throw new Error(errorText);
+                }
+
+                const data = await response.json();
+
+                if (data && data.data && data.data.project) {
+                    const project = data.data.project;
+                    let displayContent = '';
+
+                    // Helper function to safely get a value and provide a default
+                    const getValue = (value) => value !== null && value !== undefined && value !== '' ? value : 'לא זמין';
+
+                    // General Information Category
+                    displayContent += `<h3 class="text-xl font-semibold text-gray-700 mb-2 mt-4">מידע כללי</h3>`;
+                    displayContent += `<p><strong>שם הפרויקט:</strong> ${getValue(project.title)}</p>`;
+                    displayContent += `<p><strong>תת כותרת:</strong> ${getValue(project.subTitle)}</p>`;
+                    const description = getValue(project.description);
+                    const cleanDescription = description
+                        .replace(/<[^>]*>/g, '')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    displayContent += `<p><strong>תיאור:</strong> ${cleanDescription !== 'לא זמין' ? cleanDescription : 'לא זמין'}</p>`;
+                    displayContent += `<p><strong>תווית קידום:</strong> ${getValue(project.promotionalLabel)}</p>`;
+                    
+                    // Address Category
+                    displayContent += `<h3 class="text-xl font-semibold text-gray-700 mb-2 mt-4">כתובת</h3>`;
+                    displayContent += `<p><strong>מחוז:</strong> ${getValue(project.yad2TopArea)} ${getValue(project.yad2TopAreaId)}</p>`;
+                    displayContent += `<p><strong>אזור:</strong> ${getValue(project.yad2Area)} ${getValue(project.yad2AreaId)}</p>`;
+                    displayContent += `<p><strong>עיר:</strong> ${getValue(project.yad2City)} ${getValue(project.yad2CityId)}</p>`;
+                    displayContent += `<p><strong>שכונה:</strong> ${getValue(project.yad2Hood)} ${getValue(project.yad2HoodId)}</p>`;
+                    displayContent += `<p><strong>רחוב:</strong> ${getValue(project.yad2Street)} ${getValue(project.yad2StreetId)}</p>`;
+                    displayContent += `<p><strong>מספר בית:</strong> ${getValue(project.houseNumber)}</p>`;
+
+                    responseDisplay.innerHTML = displayContent;
+
+                } else {
+                    responseDisplay.innerHTML = `<strong>שגיאה:</strong> מבנה נתונים לא תקין או נתוני פרויקט חסרים בתגובה.`;
+                    responseDisplay.classList.add('text-red-600');
+                }
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showModal(`כשל באחזור נתונים: ${error.message}. אנא בדוק את מזהה טרידיס ונסה שוב.`);
+                responseDisplay.innerHTML = `<strong>שגיאה:</strong> ${error.message}`;
+                responseDisplay.classList.add('text-red-600');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                getInfoButton.disabled = false;
+                responseDisplay.classList.remove('text-red-600');
+            }
+        });
+    </script>
+</body>
+</html>
