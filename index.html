@@ -1,771 +1,408 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>עזרה ראשונה ליד1</title>
+    <title>TypeScript to Confluent Schema Converter</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* Custom styles for Inter font and general layout */
+      /* Custom font for a clean look */
       body {
         font-family: "Inter", sans-serif;
+        background-color: #f3f4f6; /* Light gray background */
       }
-      /* Animation for modal */
-      @keyframes fadeInScaleUp {
-        from {
-          opacity: 0;
-          transform: scale(0.9);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-      .animate-fade-in-up {
-        animation: fadeInScaleUp 0.3s ease-out forwards;
-      }
-      /* Ensure modal content is scrollable and respects screen height */
-      .modal-content-scrollable {
-        max-height: 80vh; /* Max height of 80% of viewport height */
-        overflow-y: auto; /* Enable vertical scrolling */
-        /* Removed overflow-x: auto and added text wrapping for JSON display */
-        word-wrap: break-word; /* Ensures long words break and wrap */
-        white-space: pre-wrap; /* Preserves whitespace but allows wrapping */
-      }
-      /* Explicitly set LTR for pre and code within the modal for JSON readability */
-      .modal-content-scrollable pre,
-      .modal-content-scrollable code {
-        direction: ltr;
-        text-align: left;
-        white-space: pre-wrap; /* Ensure wrapping within pre tags */
-        word-break: break-all; /* Break words to prevent horizontal scroll */
+      /* Style for the pre-formatted output */
+      pre {
+        background-color: #1f2937; /* Dark background for code */
+        color: #f9fafb; /* Light text color */
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto; /* Allow horizontal scrolling for long lines */
+        font-size: 0.875rem; /* text-sm */
+        line-height: 1.5; /* leading-relaxed */
       }
     </style>
   </head>
-  <body
-    class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4 font-inter"
-  >
+  <body class="p-4 sm:p-8 flex items-center justify-center min-h-screen">
     <div
-      id="app-root"
-      class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-gray-200"
+      class="max-w-6xl w-full bg-white shadow-xl rounded-lg p-6 sm:p-8 space-y-6"
     >
-      <!-- Application content will be rendered here by JavaScript -->
+      <h1 class="text-3xl font-extrabold text-gray-900 text-center mb-6">
+        TypeScript to Confluent Schema Converter
+      </h1>
+
+      <!-- Input and Output Sections - Horizontal Layout on larger screens -->
+      <div
+        class="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0"
+      >
+        <!-- Input Section -->
+        <div class="flex-1 space-y-4">
+          <div class="flex items-center justify-between">
+            <label
+              for="typescriptInput"
+              class="block text-lg font-medium text-gray-700"
+            >
+              Enter TypeScript Type Definition:
+            </label>
+            <button
+              id="runScriptButton"
+              class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"
+              title="Run Script"
+            >
+              <!-- Play icon (SVG) -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.561 0 3.273L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+          <textarea
+            id="typescriptInput"
+            rows="18"
+            class="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 sm:text-base resize-y"
+            placeholder="Example: &#10;{&#10;  id: string;&#10;  name: string;&#10;  age?: number;&#10;  images?: string[];&#10;  customer?: {&#10;    phone: string;&#10;    address: string;&#10;  };&#10;  order: {&#10;    orderId: string;&#10;    total: number;&#10;  };&#10;}"
+          ></textarea>
+        </div>
+
+        <!-- Output Section -->
+        <div class="flex-1 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-medium text-gray-700">
+              Generated Confluent Schema:
+            </h2>
+            <button
+              id="copyToClipboardButton"
+              class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+              title="Copy to Clipboard"
+            >
+              <!-- Copy icon (SVG) -->
+              <svg
+                id="copyIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M15.75 4.5a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h9Zm.75 2.25a.75.75 0 0 0-1.5 0v.75h-.75a.75.75 0 0 0 0 1.5h.75v.75a.75.75 0 0 0 1.5 0v-.75h.75a.75.75 0 0 0 0-1.5h-.75V6.75Z"
+                  clip-rule="evenodd"
+                />
+                <path
+                  fill-rule="evenodd"
+                  d="M1.5 11.25a3 3 0 0 1 3-3H9a.75.75 0 0 0 0-1.5H4.5a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 0-1.5 0v2.25a3 3 0 0 1-3 3H4.5a3 3 0 0 1-3-3v-9Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <!-- Checkmark icon (SVG) - Initially hidden -->
+              <svg
+                id="checkmarkIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5 hidden"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9.75 11.25a.75.75 0 0 1-1.12.02L3.248 13.25a.75.75 0 0 1 .97-1.18l4.042 3.332 8.79-10.153a.75.75 0 0 1 1.04-.207Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+          <pre id="outputSchema" class="text-sm h-full"></pre>
+        </div>
+      </div>
     </div>
 
     <script>
-      // Define the wizard's flow, questions, and solutions
-      const wizardFlow = {
-        initial_menu: {
-          type: "menu", // New type to indicate a menu screen
-          options: [
-            // {
-            //   text: "פרסמתי פרויקט בסיילספורס אבל לא רואה בפיד יד2", // I published a project in Salesforce but don't see it in Yad2 feed
-            //   next: "project_active_check",
-            //   flowType: "project_check" // Identifies this flow
-            // },
-            {
-              text: "למה הוואטספ לא עובד?", // Why isn't WhatsApp working?
-              next: "project_active_check", // Leads to the same input screen
-              flowType: "whatsapp_check" // Identifies this flow
-            }
-          ]
-        },
-        project_active_check: {
-          question: "האם הפרויקט פעיל בטרידיס?", // Is the project active in Treedis?
-          type: "input_screen", // Custom type to indicate an input screen
-          inputs: [
-            {
-              id: "treedis_id",
-              label: "מזהה טרידיס",
-              url: "https://api.yad2.treedis.com/v1/api/public/projects/",
-              placeholder: "הכנס מזהה טרידיס"
-            },
-            {
-              id: "salesforce_id",
-              label: "מזהה סיילספורס",
-              url: "https://api.yad2.treedis.com/v1/api/public/projects/",
-              queryParam: "?useYad2CrmId=true",
-              placeholder: "הכנס מזהה סיילספורס"
-            },
-            {
-              id: "slug",
-              label: "סלאג",
-              url: "https://api.yad2.treedis.com/v1/api/public/projects/bySlug/",
-              placeholder: "הכנס סלאג"
-            }
-          ]
-        }
-      };
+      // Function to convert TypeScript type string to Confluent Schema (JSON object)
+      // parentNamePath is used to create unique names for nested records (e.g., "ParentRecord_ChildRecord")
+      function convertTypescriptToConfluentSchema(
+        typescriptTypeString,
+        parentNamePath = null
+      ) {
+        // Define a mapping from TypeScript types to Confluent Schema types
+        const typeMapping = {
+          string: "string",
+          number: "int", // Assuming 'number' maps to 'int'. Could be 'float' or 'double' if needed.
+          boolean: "boolean"
+          // Add more mappings for other types like 'object', etc., if required.
+          // For 'any', 'unknown', 'Date', etc., specific Avro types would need to be decided.
+        };
 
-      // Global state object
-      const state = {
-        currentStep: "initial_menu", // Changed initial step to the new menu
-        wizardHistory: [],
-        projectData: null,
-        showProjectInfoModal: false,
-        loading: false,
-        error: null,
-        treedisInput: "",
-        salesforceInput: "",
-        slugInput: "",
-        activeLoadingInputId: null, // To track which input is currently loading
-        apiSuccessMessage: null, // New state for success message
-        currentFlowType: null // New state variable to track the active flow
-      };
+        // Initialize the base schema structure
+        const confluentSchema = {
+          doc: "Add your schema documentation here.", // Placeholder for documentation
+          // Use parentNamePath if provided for nested records, otherwise default to "MyRecord" for the top-level
+          name: parentNamePath || "MyRecord",
+          type: "record",
+          fields: []
+        };
 
-      const appRoot = document.getElementById("app-root");
-      let lastFocusedElement = null; // To store the element that had focus before modal opened
+        // Clean up the input string: remove outer curly braces and extra spaces
+        const cleanedInput = typescriptTypeString
+          .trim()
+          .replace(/^{|}$/g, "")
+          .trim();
 
-      // Function to update state and re-render
-      function setState(newState) {
-        // Only update changed properties
-        for (const key in newState) {
-          if (newState.hasOwnProperty(key)) {
-            state[key] = newState[key];
+        // Custom parsing for field definitions to handle nested objects
+        const fieldDefinitions = [];
+        let currentField = "";
+        let braceCount = 0; // To keep track of nested curly braces
+
+        for (let i = 0; i < cleanedInput.length; i++) {
+          const char = cleanedInput[i];
+          if (char === "{") {
+            braceCount++;
+          } else if (char === "}") {
+            braceCount--;
+          }
+
+          // Split only if we are at a semicolon and not inside any nested braces
+          if (char === ";" && braceCount === 0) {
+            fieldDefinitions.push(currentField.trim());
+            currentField = ""; // Reset current field
+          } else {
+            currentField += char;
           }
         }
-        renderApp(); // Re-render the application
-      }
-
-      // Function to render the entire application based on current state
-      function renderApp() {
-        const currentScreen = wizardFlow[state.currentStep];
-
-        // Render/Update main title (always present)
-        let titleElement = appRoot.querySelector("h1");
-        if (!titleElement) {
-          titleElement = document.createElement("h1");
-          titleElement.className =
-            "text-3xl font-bold text-center text-gray-800 mb-6";
-          appRoot.prepend(titleElement);
-        }
-        // Updated title text
-        titleElement.innerHTML = `<span class="text-blue-600">עזרה ראשונה עבור יד1</span>`;
-
-        // Conditional rendering for screens
-        if (currentScreen.type === "input_screen") {
-          renderInputScreen();
-        } else if (currentScreen.type === "menu") {
-          renderMenuScreen();
-        }
-        // else {
-        //     // Fallback or error if currentScreen.type is not recognized
-        // }
-
-        // Render Modal if needed
-        if (state.showProjectInfoModal) {
-          renderProjectInfoModal();
-        } else {
-          const modalOverlay = document.getElementById(
-            "project-info-modal-overlay"
-          );
-          if (modalOverlay) {
-            modalOverlay.remove();
-          }
-        }
-      }
-
-      // Renders the initial menu screen (formerly renderStartScreen)
-      function renderMenuScreen() {
-        // Clear only the dynamic content area, preserve title
-        let dynamicContent = appRoot.querySelector(".dynamic-content");
-        if (dynamicContent) {
-          dynamicContent.remove();
+        // Add the last field if it's not empty (no trailing semicolon or single field input)
+        if (currentField.trim() !== "") {
+          fieldDefinitions.push(currentField.trim());
         }
 
-        dynamicContent = document.createElement("div");
-        dynamicContent.className = "dynamic-content";
-        appRoot.appendChild(dynamicContent);
+        // Filter out any empty strings that might result from extra semicolons or parsing
+        const filteredFieldDefinitions = fieldDefinitions.filter(Boolean);
 
-        const currentScreen = wizardFlow[state.currentStep];
-        const menuScreenHtml = `
-                <div class="space-y-4">
-                    <!-- Buttons will be added here -->
-                </div>
-            `;
-        dynamicContent.insertAdjacentHTML("beforeend", menuScreenHtml);
-
-        const menuContainer = dynamicContent.querySelector("div"); // The space-y-4 div
-        currentScreen.options.forEach((option, index) => {
-          const buttonHtml = `
-                    <button
-                        id="menu-option-btn-${index}"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 text-xl text-center leading-relaxed"
-                    >
-                        ${option.text}
-                    </button>
-                `;
-          menuContainer.insertAdjacentHTML("beforeend", buttonHtml);
-          // Pass the flowType to handleOptionClick
-          document
-            .getElementById(`menu-option-btn-${index}`)
-            .addEventListener("click", () =>
-              handleOptionClick(option.next, option.flowType)
+        filteredFieldDefinitions.forEach((fieldDef) => {
+          // Split each definition into name and type parts
+          // Only split on the first colon to handle object type definitions like "name: { ... }"
+          const firstColonIndex = fieldDef.indexOf(":");
+          if (firstColonIndex === -1) {
+            console.warn(
+              `Skipping malformed field definition: "${fieldDef}". Expected format "name: type".`
             );
-        });
-      }
-
-      // Renders or updates the input screen
-      function renderInputScreen() {
-        // Clear only the dynamic content area, preserve title
-        let dynamicContent = appRoot.querySelector(".dynamic-content");
-        if (dynamicContent) {
-          dynamicContent.remove();
-        }
-
-        dynamicContent = document.createElement("div");
-        dynamicContent.className = "dynamic-content";
-        appRoot.appendChild(dynamicContent);
-
-        const currentScreen = wizardFlow[state.currentStep];
-        const inputScreenHtml = `
-                <div>
-                    <p class="text-xl text-gray-700 mb-6 text-center leading-relaxed">
-                        ${currentScreen.question}
-                    </p>
-                    <div class="space-y-6" id="input-fields-container">
-                        <!-- Input fields will be added here -->
-                    </div>
-                    <div id="message-area">
-                        ${
-                          state.error
-                            ? `<p class="text-red-600 text-center mt-4" role="status" aria-live="polite">${state.error}</p>`
-                            : ""
-                        }
-                        ${
-                          state.apiSuccessMessage
-                            ? `
-                            <p class="text-green-600 text-center mt-4 font-semibold" role="status" aria-live="polite">
-                                ${state.apiSuccessMessage}
-                            </p>
-                            <div class="text-center mt-4">
-                                <button id="view-info-btn"
-                                    class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75">
-                                    לצפייה במידע שהתקבל
-                                </button>
-                            </div>
-                        `
-                            : ""
-                        }
-                    </div>
-                </div>
-            `;
-        dynamicContent.insertAdjacentHTML("beforeend", inputScreenHtml);
-
-        const inputFieldsContainer = document.getElementById(
-          "input-fields-container"
-        );
-        currentScreen.inputs.forEach((inputField) => {
-          const inputValue =
-            inputField.id === "treedis_id"
-              ? state.treedisInput
-              : inputField.id === "salesforce_id"
-              ? state.salesforceInput
-              : state.slugInput;
-
-          const inputFieldHtml = `
-                    <div class="flex flex-col items-center">
-                        <label for="${
-                          inputField.id
-                        }" class="text-lg font-semibold text-gray-700 mb-2">
-                            ${inputField.label}
-                        </label>
-                        <div class="flex w-full max-w-md">
-                            <!-- Input first, button second for RTL visual order (Input on right, Button on left) -->
-                            <input
-                                type="text"
-                                id="${inputField.id}"
-                                class="flex-grow p-3 border border-gray-300 rounded-r-xl rounded-l-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                placeholder="${inputField.placeholder}"
-                                value="${inputValue}"
-                            />
-                            <button
-                                id="btn-${inputField.id}"
-                                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-l-xl rounded-r-none shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 ${
-                                  state.loading
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }"
-                                ${state.loading ? "disabled" : ""}
-                            >
-                                ${
-                                  state.loading &&
-                                  inputField.id === state.activeLoadingInputId
-                                    ? "טוען..."
-                                    : "בדיקה"
-                                }
-                            </button>
-                        </div>
-                    </div>
-                `;
-          inputFieldsContainer.insertAdjacentHTML("beforeend", inputFieldHtml);
-
-          // Attach event listeners and update values
-          const inputElement = document.getElementById(inputField.id);
-          // Attach input listener only once
-          if (!inputElement.dataset.listenersAttached) {
-            inputElement.addEventListener("input", (e) => {
-              // Directly update state property without re-rendering the whole component
-              if (inputField.id === "treedis_id")
-                state.treedisInput = e.target.value;
-              else if (inputField.id === "salesforce_id")
-                state.salesforceInput = e.target.value;
-              else state.slugInput = e.target.value;
-            });
-            inputElement.dataset.listenersAttached = "true";
-          }
-          // Ensure the input's displayed value is always in sync with state
-          inputElement.value = inputValue;
-
-          const buttonElement = document.getElementById(`btn-${inputField.id}`);
-          // Attach button listener only once
-          if (!buttonElement.dataset.listenersAttached) {
-            buttonElement.addEventListener("click", () => {
-              // Get the current value of the input when the button is clicked
-              const currentInputValue = document.getElementById(
-                inputField.id
-              ).value;
-              handleApiCheck(inputField.id, currentInputValue);
-            });
-            buttonElement.dataset.listenersAttached = "true";
-          }
-          // Update button text and disabled state on each render
-          buttonElement.textContent =
-            state.loading && inputField.id === state.activeLoadingInputId
-              ? "טוען..."
-              : "בדיקה";
-          buttonElement.disabled = state.loading;
-          buttonElement.classList.toggle("opacity-50", state.loading);
-          buttonElement.classList.toggle("cursor-not-allowed", state.loading);
-        });
-
-        // Attach event listener for the "View Info" button if it exists
-        if (state.apiSuccessMessage) {
-          const viewInfoBtn = document.getElementById("view-info-btn");
-          if (viewInfoBtn && !viewInfoBtn.dataset.listenersAttached) {
-            viewInfoBtn.addEventListener("click", () => {
-              setState({ showProjectInfoModal: true });
-            });
-            viewInfoBtn.dataset.listenersAttached = "true";
-          }
-        }
-
-        // Update message area content
-        const messageArea = document.getElementById("message-area");
-        if (messageArea) {
-          messageArea.innerHTML = `
-                    ${
-                      state.error
-                        ? `<p class="text-red-600 text-center mt-4" role="status" aria-live="polite">${state.error}</p>`
-                        : ""
-                    }
-                    ${
-                      state.apiSuccessMessage
-                        ? `
-                        <p class="text-green-600 text-center mt-4 font-semibold" role="status" aria-live="polite">
-                            ${state.apiSuccessMessage}
-                        </p>
-                        <div class="text-center mt-4">
-                            <button id="view-info-btn"
-                                class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75">
-                                לצפייה במידע שהתקבל
-                            </button>
-                        </div>
-                    `
-                        : ""
-                    }
-                `;
-          // Re-attach listener for view-info-btn if it was just re-rendered
-          if (state.apiSuccessMessage) {
-            const viewInfoBtn = document.getElementById("view-info-btn");
-            if (viewInfoBtn && !viewInfoBtn.dataset.listenersAttached) {
-              viewInfoBtn.addEventListener("click", () => {
-                setState({ showProjectInfoModal: true });
-              });
-              viewInfoBtn.dataset.listenersAttached = "true";
-            }
-          }
-        }
-      }
-
-      // Function to render the project info modal
-      function renderProjectInfoModal() {
-        // Save currently focused element to return focus later
-        lastFocusedElement = document.activeElement;
-
-        // Determine the data to display in the modal
-        let displayData = state.projectData;
-        if (
-          typeof state.projectData === "object" &&
-          state.projectData !== null &&
-          state.projectData.data &&
-          state.projectData.data.project
-        ) {
-          displayData = state.projectData.data.project; // Show only the 'project' object
-        }
-
-        const modalHtml = `
-                <div id="project-info-modal-overlay" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-                    <div id="project-info-modal-content" role="dialog" aria-modal="true" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-300 animate-fade-in-up text-left dir-ltr modal-content-scrollable">
-                        <h2 class="text-2xl font-bold text-blue-700 mb-4 text-center">
-                            Project Information
-                        </h2>
-                        ${
-                          displayData
-                            ? typeof displayData === "string"
-                              ? `<p class="text-gray-800 whitespace-pre-wrap">${displayData}</p>`
-                              : `<pre id="json-display" class="bg-gray-100 p-4 rounded-lg border border-gray-200 text-sm text-gray-800"></pre>`
-                            : `<p class="text-gray-600 text-center">No data to display.</p>`
-                        }
-                        <div class="mt-8 flex justify-center space-x-4">
-                            <button id="modal-copy-json-btn"
-                                class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75">
-                                Copy JSON
-                            </button>
-                            <button id="modal-start-over-btn"
-                                class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75">
-                                Start Over
-                            </button>
-                            <button id="modal-close-btn"
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-xl shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75">
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        document.body.insertAdjacentHTML("beforeend", modalHtml);
-
-        const modalOverlay = document.getElementById(
-          "project-info-modal-overlay"
-        );
-        const modalContent = document.getElementById(
-          "project-info-modal-content"
-        );
-        const jsonDisplayPre = document.getElementById("json-display");
-
-        // Populate JSON content and scroll to top
-        if (
-          jsonDisplayPre &&
-          typeof displayData === "object" && // Use displayData here
-          displayData !== null
-        ) {
-          jsonDisplayPre.textContent = JSON.stringify(
-            displayData, // Use displayData here
-            null,
-            2
-          );
-          jsonDisplayPre.scrollTop = 0; // Scroll to top
-        }
-
-        // Attach event listeners to modal buttons
-        document
-          .getElementById("modal-copy-json-btn")
-          .addEventListener("click", () => {
-            if (
-              typeof displayData === "object" && // Use displayData here
-              displayData !== null
-            ) {
-              copyToClipboard(JSON.stringify(displayData, null, 2)); // Use displayData here
-            } else if (typeof displayData === "string") {
-              copyToClipboard(displayData);
-            }
-          });
-        document
-          .getElementById("modal-start-over-btn")
-          .addEventListener("click", resetWizard);
-        document
-          .getElementById("modal-close-btn")
-          .addEventListener("click", resetWizard);
-
-        // Close modal on overlay click
-        modalOverlay.addEventListener("click", (e) => {
-          if (e.target === modalOverlay) {
-            resetWizard();
-          }
-        });
-
-        // Trap focus within the modal
-        trapFocus(modalContent);
-      }
-
-      // Function to trap focus inside a given element (e.g., a modal)
-      function trapFocus(element) {
-        const focusableEls = element.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusableEls.length === 0) return;
-
-        const firstFocusableEl = focusableEls[0];
-        const lastFocusableEl = focusableEls[focusableEls.length - 1];
-
-        firstFocusableEl.focus(); // Focus on the first interactive element when modal opens
-
-        element.addEventListener("keydown", function (e) {
-          const isTabPressed = e.key === "Tab" || e.keyCode === 9;
-
-          if (!isTabPressed) {
             return;
           }
 
-          if (e.shiftKey) {
-            /* shift + tab */
-            if (document.activeElement === firstFocusableEl) {
-              lastFocusableEl.focus();
-              e.preventDefault();
+          let fieldName = fieldDef.substring(0, firstColonIndex).trim();
+          let tsType = fieldDef.substring(firstColonIndex + 1).trim();
+
+          let isOptional = false;
+          let isArray = false;
+          let arrayItemType = "";
+          let isObject = false;
+          let objectContent = "";
+
+          // Check if the field is optional (e.g., 'name?: string')
+          if (fieldName.endsWith("?")) {
+            isOptional = true;
+            fieldName = fieldName.slice(0, -1); // Remove '?'
+          }
+
+          // Check if the type is an array (e.g., 'string[]' or '{...}[]')
+          if (tsType.endsWith("[]")) {
+            isArray = true;
+            arrayItemType = tsType.slice(0, -2).trim(); // Get the type inside the array, e.g., 'string' or '{...}'
+          } else if (tsType.startsWith("{") && tsType.endsWith("}")) {
+            // Check if the type is an object
+            isObject = true;
+            objectContent = tsType.substring(1, tsType.length - 1).trim(); // Extract content inside braces
+          }
+
+          let field; // Declare field with let so it can be reassigned
+
+          if (isObject) {
+            const capitalizedFieldName =
+              fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+            // Construct the new unique path for the nested record using underscore as separator
+            const newPathForNestedRecord =
+              confluentSchema.name + "_" + capitalizedFieldName;
+
+            // Recursively call the function to convert the nested object's fields, passing the new path
+            const nestedSchema = convertTypescriptToConfluentSchema(
+              objectContent,
+              newPathForNestedRecord
+            );
+
+            let objectTypeDefinition = {
+              type: "record",
+              name: newPathForNestedRecord, // Assign the full unique path as the record name
+              fields: nestedSchema.fields // Use the fields from the recursive call
+            };
+
+            if (isOptional) {
+              field = {
+                default: null, // Optional objects default to null
+                name: fieldName,
+                type: ["null", objectTypeDefinition]
+              };
+            } else {
+              field = {
+                name: fieldName,
+                type: objectTypeDefinition
+              };
+            }
+          } else if (isArray) {
+            let typeValue;
+            if (arrayItemType.startsWith("{") && arrayItemType.endsWith("}")) {
+              const capitalizedFieldName =
+                fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+              const arrayItemBaseName = capitalizedFieldName + "Item";
+              // Construct the new unique path for the array item record using underscore as separator
+              const newPathForArrayItemRecord =
+                confluentSchema.name + "_" + arrayItemBaseName;
+
+              // It's an array of objects, recursively convert the object definition, passing the new path
+              const nestedSchema = convertTypescriptToConfluentSchema(
+                arrayItemType,
+                newPathForArrayItemRecord
+              );
+
+              typeValue = {
+                type: "array",
+                items: {
+                  type: "record",
+                  name: newPathForArrayItemRecord, // Assign the full unique path as the record name
+                  fields: nestedSchema.fields
+                }
+              };
+            } else {
+              // It's an array of primitive types
+              typeValue = {
+                type: "array",
+                items: typeMapping[arrayItemType.toLowerCase()] || "string" // Map the item type
+              };
+            }
+
+            if (isOptional) {
+              // For optional arrays, set default to empty array and type to the array definition itself
+              field = {
+                default: [],
+                name: fieldName,
+                type: typeValue
+              };
+            } else {
+              field = {
+                name: fieldName,
+                type: typeValue
+              };
             }
           } else {
-            /* tab */
-            if (document.activeElement === lastFocusableEl) {
-              firstFocusableEl.focus();
-              e.preventDefault();
+            // Handle non-array, non-object (primitive) types
+            const baseAvroType = typeMapping[tsType.toLowerCase()] || "string"; // Default to 'string' if unknown
+            if (isOptional) {
+              field = {
+                default: null, // Placed first as requested
+                name: fieldName,
+                type: ["null", baseAvroType]
+              };
+            } else {
+              field = {
+                name: fieldName,
+                type: baseAvroType
+              };
             }
           }
+
+          confluentSchema.fields.push(field);
         });
+
+        return confluentSchema;
       }
 
-      // Global Escape key listener for modals
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && state.showProjectInfoModal) {
-          resetWizard();
+      // Get elements from the DOM
+      const typescriptInput = document.getElementById("typescriptInput");
+      const outputSchema = document.getElementById("outputSchema");
+      const runScriptButton = document.getElementById("runScriptButton");
+      const copyToClipboardButton = document.getElementById(
+        "copyToClipboardButton"
+      );
+      const copyIcon = document.getElementById("copyIcon");
+      const checkmarkIcon = document.getElementById("checkmarkIcon");
+
+      // Function to handle conversion logic
+      const performConversion = () => {
+        const inputString = typescriptInput.value;
+        try {
+          // Pass null for parentNamePath for the initial call
+          const schema = convertTypescriptToConfluentSchema(inputString, null);
+          // Display the JSON schema in a preformatted block
+          outputSchema.textContent = JSON.stringify(schema, null, 2);
+        } catch (error) {
+          // Display error message if conversion fails
+          outputSchema.textContent = `Error: ${error.message}\n\nPlease check your TypeScript input format.`;
+          console.error("Conversion error:", error);
+        }
+      };
+
+      // Add event listener for the Run Script button
+      runScriptButton.addEventListener("click", performConversion);
+
+      // Add event listener for the Copy to Clipboard button
+      copyToClipboardButton.addEventListener("click", () => {
+        const textToCopy = outputSchema.textContent;
+        try {
+          // Use document.execCommand for broader compatibility in iframes
+          const textarea = document.createElement("textarea");
+          textarea.value = textToCopy;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textarea);
+
+          // Show checkmark and hide copy icon
+          copyIcon.classList.add("hidden");
+          checkmarkIcon.classList.remove("hidden");
+
+          // Revert icons after 1 second
+          setTimeout(() => {
+            copyIcon.classList.remove("hidden");
+            checkmarkIcon.classList.add("hidden");
+          }, 1000);
+        } catch (err) {
+          console.error("Failed to copy text: ", err);
+          // Fallback if copy fails (e.g., for security reasons in some environments)
+          alert("Failed to copy schema to clipboard.");
         }
       });
 
-      // Function to copy text to clipboard
-      function copyToClipboard(text) {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        textarea.setAttribute("readonly", ""); // Make it read-only to prevent iOS keyboard pop-up
-        textarea.style.position = "absolute";
-        textarea.style.left = "-9999px"; // Hide it off-screen
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand("copy");
-          showTemporaryMessage("JSON copied to clipboard!", "success");
-        } catch (err) {
-          console.error("Failed to copy text: ", err);
-          showTemporaryMessage(
-            "Failed to copy JSON. Please copy manually.",
-            "error"
-          );
-        } finally {
-          document.body.removeChild(textarea);
-        }
-      }
-
-      // Function to display a temporary message (replaces alert)
-      function showTemporaryMessage(message, type = "info") {
-        const messageBox = document.createElement("div");
-        messageBox.className = `fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-lg text-white text-center z-[1000] transition-all duration-300 ease-out transform ${
-          type === "success"
-            ? "bg-green-500"
-            : type === "error"
-            ? "bg-red-500"
-            : "bg-blue-500"
-        }`;
-        messageBox.textContent = message;
-        document.body.appendChild(messageBox);
-
-        setTimeout(() => {
-          messageBox.classList.add("opacity-0", "translate-y-[-20px]");
-          messageBox.addEventListener("transitionend", () =>
-            messageBox.remove()
-          );
-        }, 2000); // Message disappears after 2 seconds
-      }
-
-      // Event handlers
-      function handleOptionClick(nextStep, flowType = null) {
-        state.wizardHistory.push(state.currentStep);
-        setState({
-          currentStep: nextStep,
-          wizardHistory: state.wizardHistory,
-          apiSuccessMessage: null,
-          error: null,
-          currentFlowType: flowType // Store the flowType here
-        }); // Clear messages on navigation
-      }
-
-      function resetWizard() {
-        // Return focus to the element that triggered the modal, if applicable
-        if (lastFocusedElement && lastFocusedElement.focus) {
-          lastFocusedElement.focus();
-        }
-        setState({
-          currentStep: "initial_menu", // Reset to the initial menu
-          wizardHistory: [],
-          projectData: null,
-          showProjectInfoModal: false,
-          loading: false,
-          error: null,
-          treedisInput: "",
-          salesforceInput: "",
-          slugInput: "",
-          activeLoadingInputId: null,
-          apiSuccessMessage: null,
-          currentFlowType: null // Reset flow type on wizard reset
-        });
-        // Ensure modal is removed from DOM if it was open
-        const modalOverlay = document.getElementById(
-          "project-info-modal-overlay"
-        );
-        if (modalOverlay) {
-          modalOverlay.remove();
-        }
-      }
-
-      async function handleApiCheck(inputId, inputValue) {
-        // The inputValue here is the current value of the specific input being checked
-        if (!inputValue) {
-          setState({
-            error: "Please enter a value before checking.",
-            apiSuccessMessage: null
-          });
-          return;
-        }
-
-        setState({
-          loading: true,
-          error: null,
-          projectData: null,
-          activeLoadingInputId: inputId,
-          apiSuccessMessage: null
-        });
-
-        const inputConfig = wizardFlow.project_active_check.inputs.find(
-          (input) => input.id === inputId
-        );
-        if (!inputConfig) {
-          setState({
-            error: "Invalid input configuration.",
-            loading: false,
-            activeLoadingInputId: null,
-            apiSuccessMessage: null
-          });
-          return;
-        }
-
-        let apiUrl = `${inputConfig.url}${inputValue}`;
-        if (inputConfig.queryParam) {
-          apiUrl += inputConfig.queryParam;
-        }
-
-        try {
-          const response = await fetch(apiUrl);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          const data = await response.json();
-          const project =
-            data.data && data.data.project ? data.data.project : null;
-
-          if (!project) {
-            setState({
-              projectData: "No project found with the provided ID/slug.",
-              apiSuccessMessage: null,
-              error: "No project found with the provided ID/slug."
-            });
-            return; // Exit if no project data
-          }
-
-          // Conditional handling based on currentFlowType
-          if (state.currentFlowType === "whatsapp_check") {
-            const hasContactName =
-              project.contactName !== undefined &&
-              project.contactName !== null &&
-              project.contactName !== "";
-            const hasRealPhoneNumber =
-              project.realPhoneNumber !== undefined &&
-              project.realPhoneNumber !== null &&
-              project.realPhoneNumber !== "";
-            const updatedAtString = project.updatedAt;
-
-            let finalMessage = "";
-
-            // Rule 1: IF !hasContactName OR !hasRealPhoneNumber => show ONLY the whatsappMessage.
-            if (!hasContactName || !hasRealPhoneNumber) {
-              if (!hasContactName && !hasRealPhoneNumber) {
-                finalMessage = "לפרויקט חסרים איש קשר וטלפון איש קשר";
-              } else if (!hasContactName) {
-                finalMessage = "לפרויקט חסר שם איש קשר";
-              } else {
-                // !hasRealPhoneNumber
-                finalMessage = "לפרויקט חסר טלפון איש קשר";
-              }
-            }
-            // If we reach here, it means hasContactName AND hasRealPhoneNumber are TRUE.
-            else {
-              if (updatedAtString) {
-                const projectUpdatedAt = new Date(updatedAtString);
-
-                // Get current time in Israel (IDT)
-                const now = new Date();
-                // Using toLocaleString with timeZone for accurate Israel time
-                const israelTime = new Date(
-                  now.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" })
-                );
-
-                const startOfCurrentHourIsrael = new Date(israelTime);
-                startOfCurrentHourIsrael.setMinutes(0);
-                startOfCurrentHourIsrael.setSeconds(0);
-                startOfCurrentHourIsrael.setMilliseconds(0);
-
-                // Rule 2: IF hasContactName AND hasRealPhoneNumber AND projectUpdatedAt.getTime() >= startOfCurrentHourIsrael.getTime()
-                if (
-                  projectUpdatedAt.getTime() >=
-                  startOfCurrentHourIsrael.getTime()
-                ) {
-                  finalMessage =
-                    "לפי תאריך העדכון האחרון של הפרויקט בטרידיס, המידע טרם עודכן במערכות של יד2. כל עדכון מתרחש בשעה עגולה. במידה ועברו 10 דקות מתחילת השעה הבאה והבעיה ממשיכה, יש ליצור קשר עם אחד המפתחים של יד2";
-                }
-                // Rule 3: The final ELSE (if contactName and realPhoneNumber are present AND updatedAt IS BEFORE current hour)
-                else {
-                  // projectUpdatedAt.getTime() < startOfCurrentHourIsrael.getTime()
-                  finalMessage =
-                    "המידע בטרידיס תקין. יש לבדוק האם הפרויקט קיים בפיד. במידה ולא קיים בפיד, יש ליצור קשר עם אחד המפתחים של יד2";
-                }
-              } else {
-                // If updatedAtString is missing but contact details are present, default to the "data is good" message
-                finalMessage =
-                  "המידע בטרידיס תקין. יש לבדוק האם הפרויקט קיים בפיד. במידה ולא קיים בפיד, יש ליצור קשר עם אחד המפתחים של יד2";
-              }
-            }
-
-            setState({
-              projectData: project, // Store project data for potential modal view
-              apiSuccessMessage: finalMessage,
-              error: null
-            });
-          } else if (state.currentFlowType === "project_check") {
-            // Original logic for "project_check" flow
-            setState({
-              projectData: data, // Keep full data for original flow
-              apiSuccessMessage: "הפרויקט קיים ופעיל בטרידיס",
-              error: null
-            });
-          } else {
-            // Default handling if flowType is not recognized or not set
-            setState({
-              projectData: data,
-              apiSuccessMessage: "הפרויקט קיים ופעיל בטרידיס",
-              error: null
-            });
-          }
-        } catch (e) {
-          console.error("API call failed:", e);
-          setState({
-            error: `Failed to fetch project data: ${e.message}. Please check the ID/slug and try again.`,
-            apiSuccessMessage: null
-          });
-        } finally {
-          setState({ loading: false, activeLoadingInputId: null });
-        }
-      }
-
-      // Initial render when the page loads
-      document.addEventListener("DOMContentLoaded", renderApp);
+      // Initialize with an example when the page loads
+      document.addEventListener("DOMContentLoaded", () => {
+        typescriptInput.value = `{
+  id: string;
+  name: string;
+  age?: number;
+  isActive?: boolean;
+  email?: string;
+  images?: string[];
+  tags: string[];
+  customer?: {
+    phone: string;
+    address: string;
+    contactMethods?: string[];
+  };
+  order: {
+    orderId: string;
+    total: number;
+    items?: {
+      productId: string;
+      quantity: number;
+    }[];
+  };
+}`;
+        performConversion(); // Automatically convert the example
+      });
     </script>
   </body>
 </html>
