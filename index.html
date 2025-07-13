@@ -240,7 +240,6 @@
               name: newPathForNestedRecord, // Assign the full unique path as the record name
               fields: nestedSchema.fields // Use the fields from the recursive call
             };
-
             if (isOptional) {
               field = {
                 default: null, // Optional objects default to null
